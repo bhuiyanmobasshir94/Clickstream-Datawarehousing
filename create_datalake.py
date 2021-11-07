@@ -1,5 +1,4 @@
 import os
-
 from collections import defaultdict
 from datetime import datetime
 
@@ -22,10 +21,9 @@ sqlite.execute(
         `folder_name` VARCHAR(200) NOT NULL,
         `file_name` VARCHAR(200) NOT NULL,
         `resource_url` VARCHAR(200) NOT NULL,
-        `size_in_bytes` BIGINT NOT NULL DEFAULT 0,
-        `data_inserted` BOOLEAN NOT NULL DEFAULT FALSE,
-        `number_of_rows` BIGINT NOT NULL DEFAULT 0,
-        `last_updated` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        `size_in_bytes` INTEGER NOT NULL,
+        `data_inserted` BOOLEAN NOT NULL,
+        `number_of_rows` INTEGER NOT NULL,
         CONSTRAINT `datacatalog_pk` PRIMARY KEY (`file_name`)
     )
     """
@@ -38,7 +36,6 @@ sqlite.execute(
 datacatalog_number_of_rows = pd.read_sql(
     "SELECT COUNT(*) FROM datacatalog", sqlite_engine
 ).iloc[0, 0]
-print(f"datacatalog_number_of_rows: {datacatalog_number_of_rows}")
 
 if datacatalog_number_of_rows == 0:
     print("Creating datacatalog...")
@@ -99,5 +96,52 @@ if datacatalog_number_of_rows == 0:
     )
     print("Datacatalog created.")
 
+data_catalog = pd.read_sql("SELECT * FROM datacatalog", sqlite_engine)
+print(f"{data_catalog.shape[0]} files to process.")
 
+condition = ("2017", "2021")
+
+for index, row in data_catalog.iterrows():
+    folder_name = row["folder_name"]
+    file_name = row["file_name"]
+    resource_url = row["resource_url"]
+
+    if condition and not folder_name.startswith(condition):
+        # print(f"Skipping {folder_name}")
+        continue
+
+    if not os.path.exists(f"data/{folder_name}"):
+        os.mkdir(f"data/{folder_name}")
+    file_path = os.path.join("data", folder_name, file_name)
+    if not os.path.exists(file_path):
+        with open(file_path, "wb") as f:
+            response = requests.get(resource_url)
+            f.write(response.content)
+        # data_catalog.loc[index, "size_in_bytes"] = os.stat(file_path).st_size
+        sqlite.execute(
+            f"UPDATE datacatalog SET size_in_bytes = {os.stat(file_path).st_size} WHERE file_name = '{file_name}'"
+        )
+        print(f"The file {file_name} now contains {os.stat(file_path).st_size} bytes")
+    else:
+        if row["size_in_bytes"] == 0:
+            if os.stat(file_path).st_size > 0:
+                # data_catalog.loc[index, "size_in_bytes"] = os.stat(file_path).st_size
+                sqlite.execute(
+                    f"UPDATE datacatalog SET size_in_bytes = {os.stat(file_path).st_size} WHERE file_name = '{file_name}'"
+                )
+                print(
+                    f"The file {file_name} now contains {os.stat(file_path).st_size} bytes"
+                )
+            else:
+                with open(file_path, "wb") as f:
+                    response = requests.get(resource_url)
+                    f.write(response.content)
+                # data_catalog.loc[index, "size_in_bytes"] = os.stat(file_path).st_size
+                sqlite.execute(
+                    f"UPDATE datacatalog SET size_in_bytes = {os.stat(file_path).st_size} WHERE file_name = '{file_name}'"
+                )
+                print(
+                    f"The file {file_name} now contains {os.stat(file_path).st_size} bytes"
+                )
+print(f"Datalake created.")
 sqlite.disconnect()
