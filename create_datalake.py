@@ -33,6 +33,8 @@ sqlite.execute(
 # print(sqlite.fetch_all())  # [(0,)]
 # print(sqlite.fetch_one())  # (0,)
 
+condition = ("2017", "2021")  # year range
+
 datacatalog_number_of_rows = pd.read_sql(
     "SELECT COUNT(*) FROM datacatalog", sqlite_engine
 ).iloc[0, 0]
@@ -98,8 +100,6 @@ if datacatalog_number_of_rows == 0:
 
 data_catalog = pd.read_sql("SELECT * FROM datacatalog", sqlite_engine)
 print(f"{data_catalog.shape[0]} files to process.")
-
-condition = ("2017", "2021")
 
 for index, row in data_catalog.iterrows():
     folder_name = row["folder_name"]
