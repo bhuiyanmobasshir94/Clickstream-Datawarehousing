@@ -6,25 +6,48 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
 
-from database_clients import SQLiteClient
+from database_clients import PostgreSQLClient, SQLiteClient
 
 load_dotenv()
 
 DATA_VENDOR_URL = os.getenv("DATA_VENDOR_URL")
+USE_POSTGRESQL = os.getenv("USE_POSTGRESQL") == "True"
+POSTGRESQL_HOST = os.getenv("POSTGRESQL_HOST")
+POSTGRESQL_PORT = int(os.getenv("POSTGRESQL_PORT"))
+POSTGRESQL_USER = os.getenv("POSTGRESQL_USER")
+POSTGRESQL_PASSWORD = os.getenv("POSTGRESQL_PASSWORD")
+POSTGRESQL_DB = os.getenv("POSTGRESQL_DB")
 
-sqlite = SQLiteClient("datawarehouse.sqlite")
-sqlite_engine = sqlite.connect()
-sqlite.execute(
+if USE_POSTGRESQL:
+    print("Using PostgreSQL")
+    client = PostgreSQLClient(
+        dbname=POSTGRESQL_DB,
+        user=POSTGRESQL_USER,
+        password=POSTGRESQL_PASSWORD,
+        host=POSTGRESQL_HOST,
+        port=POSTGRESQL_PORT,
+    )
+    client.connect()
+    client_engine = create_engine(
+        f"postgresql://{POSTGRESQL_USER}:{POSTGRESQL_PASSWORD}@{POSTGRESQL_HOST}:{POSTGRESQL_PORT}/{POSTGRESQL_DB}"
+    )
+else:
+    print("Using SQLite")
+    client = SQLiteClient("datawarehouse.sqlite")
+    client_engine = client.connect()
+
+client.execute(
     """
-    CREATE TABLE IF NOT EXISTS `datacatalog` (
-        `folder_name` VARCHAR(200) NOT NULL,
-        `file_name` VARCHAR(200) NOT NULL,
-        `resource_url` VARCHAR(200) NOT NULL,
-        `size_in_bytes` INTEGER NOT NULL,
-        `data_inserted` BOOLEAN NOT NULL,
-        `number_of_rows` INTEGER NOT NULL,
-        CONSTRAINT `datacatalog_pk` PRIMARY KEY (`file_name`)
+    CREATE TABLE IF NOT EXISTS datacatalog (
+        folder_name VARCHAR(200) NOT NULL,
+        file_name VARCHAR(200) NOT NULL,
+        resource_url VARCHAR(200) NOT NULL,
+        size_in_bytes INTEGER NOT NULL,
+        data_inserted BOOLEAN NOT NULL,
+        number_of_rows INTEGER NOT NULL,
+        CONSTRAINT datacatalog_pk PRIMARY KEY (file_name)
     )
     """
 )
@@ -36,7 +59,7 @@ sqlite.execute(
 condition = ("2017", "2021")  # year range
 
 datacatalog_number_of_rows = pd.read_sql(
-    "SELECT COUNT(*) FROM datacatalog", sqlite_engine
+    "SELECT COUNT(*) FROM datacatalog", client_engine
 ).iloc[0, 0]
 
 if datacatalog_number_of_rows == 0:
@@ -94,11 +117,11 @@ if datacatalog_number_of_rows == 0:
         ],
     )
     data_catalog.to_sql(
-        name="datacatalog", con=sqlite_engine, if_exists="append", index=False
+        name="datacatalog", con=client_engine, if_exists="append", index=False
     )
     print("Datacatalog created.")
 
-data_catalog = pd.read_sql("SELECT * FROM datacatalog", sqlite_engine)
+data_catalog = pd.read_sql("SELECT * FROM datacatalog", client_engine)
 print(f"{data_catalog.shape[0]} files to process.")
 
 for index, row in data_catalog.iterrows():
@@ -118,7 +141,7 @@ for index, row in data_catalog.iterrows():
             response = requests.get(resource_url)
             f.write(response.content)
         # data_catalog.loc[index, "size_in_bytes"] = os.stat(file_path).st_size
-        sqlite.execute(
+        client.execute(
             f"UPDATE datacatalog SET size_in_bytes = {os.stat(file_path).st_size} WHERE file_name = '{file_name}'"
         )
         print(f"The file {file_name} now contains {os.stat(file_path).st_size} bytes")
@@ -126,7 +149,7 @@ for index, row in data_catalog.iterrows():
         if row["size_in_bytes"] == 0:
             if os.stat(file_path).st_size > 0:
                 # data_catalog.loc[index, "size_in_bytes"] = os.stat(file_path).st_size
-                sqlite.execute(
+                client.execute(
                     f"UPDATE datacatalog SET size_in_bytes = {os.stat(file_path).st_size} WHERE file_name = '{file_name}'"
                 )
                 print(
@@ -137,11 +160,11 @@ for index, row in data_catalog.iterrows():
                     response = requests.get(resource_url)
                     f.write(response.content)
                 # data_catalog.loc[index, "size_in_bytes"] = os.stat(file_path).st_size
-                sqlite.execute(
+                client.execute(
                     f"UPDATE datacatalog SET size_in_bytes = {os.stat(file_path).st_size} WHERE file_name = '{file_name}'"
                 )
                 print(
                     f"The file {file_name} now contains {os.stat(file_path).st_size} bytes"
                 )
 print(f"Datalake created.")
-sqlite.disconnect()
+client.disconnect()
