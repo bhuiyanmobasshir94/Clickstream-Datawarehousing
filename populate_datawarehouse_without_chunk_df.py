@@ -72,26 +72,23 @@ if datacatalog_number_of_rows > 0:
                     # low_memory=False,
                     error_bad_lines=False,
                     warn_bad_lines=True,
-                    chunksize=1000_000,
+                    # chunksize=1000_000,
                     dtype={"0": str, "1": str, "2": str, "3": int},
                 )
-                df_shape = 0
+                df_shape = df.shape[0]
                 chunk_start = datetime.now()
-                for chunk in df:
-                    df_shape += chunk.shape[0]
-                    chunk.columns = columns
-                    chunk["date"] = datetime.strptime(folder_name, "%Y-%m").date()
-                    chunk["wiki"] = str(file_name.split("-")[1])
-                    chunk.to_sql(
-                        name="clickstream",
-                        con=client_engine,
-                        if_exists="append",
-                        index=False,
-                        method="multi",
-                        chunksize=10_000,  # 10,000 rows per insert with 5 parameters for constraint 65535
-                    )
-                    chunk_end = datetime.now() - chunk_start
-                    print(f"{df_shape} rows processed in {chunk_end}")
+                df.columns = columns
+                df["date"] = datetime.strptime(folder_name, "%Y-%m").date()
+                df["wiki"] = str(file_name.split("-")[1])
+                df.to_sql(
+                    name="clickstream",
+                    con=client_engine,
+                    if_exists="append",
+                    index=False,
+                    method="multi",
+                    chunksize=10_000,  # 10,000 rows per insert with 5 parameters for constraint 65535
+                )
+                chunk_end = datetime.now() - chunk_start
                 # data_catalog.loc[index, "data_inserted"] = True
                 client.execute(
                     f"UPDATE datacatalog SET data_inserted = True WHERE file_name = '{file_name}'"
@@ -100,7 +97,7 @@ if datacatalog_number_of_rows > 0:
                 client.execute(
                     f"UPDATE datacatalog SET number_of_rows = {df_shape} WHERE file_name = '{file_name}'"
                 )
-                print(f"{df_shape} rows ingested from {file_name}.")
+                print(f"{df_shape} rows ingested in {chunk_end} from {file_name}.")
 
                 if index % 10 == 0:
                     print(f"At index {index}.")
