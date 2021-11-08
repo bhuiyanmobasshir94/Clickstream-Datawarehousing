@@ -6,7 +6,9 @@ import psycopg2
 
 
 class PostgreSQLClient:
-    def __init__(self, dbname, user, password):
+    def __init__(self, dbname, user, password, host, port):
+        self.host = host
+        self.port = port
         self.dbname = dbname
         self.user = user
         self.password = password
@@ -16,7 +18,11 @@ class PostgreSQLClient:
     def connect(self):
         try:
             self.conn = psycopg2.connect(
-                dbname=self.dbname, user=self.user, password=self.password
+                dbname=self.dbname,
+                user=self.user,
+                password=self.password,
+                host=self.host,
+                port=self.port,
             )
             self.cursor = self.conn.cursor()
             return self.conn
