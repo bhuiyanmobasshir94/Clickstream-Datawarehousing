@@ -1,3 +1,4 @@
+import gzip
 import io
 import os
 from datetime import date, datetime
@@ -83,13 +84,17 @@ def populate_datawarehouse():
                             os.path.join(DATALAKE_DIR, folder_name, file_name)
                         )
                         else io.StringIO(
-                            requests.get(resource_url).content.decode("utf-8")
+                            gzip.decompress(requests.get(resource_url).content).decode(
+                                "utf-8"
+                            )
                         )
                     )
                 else:
                     print(f"Reading {folder_name}/{file_name} from resource url")
                     file_path = io.StringIO(
-                        requests.get(resource_url).content.decode("utf-8")
+                        gzip.decompress(requests.get(resource_url).content).decode(
+                            "utf-8"
+                        )
                     )
 
                 print(f"Processing {file_name} to ingest.")
