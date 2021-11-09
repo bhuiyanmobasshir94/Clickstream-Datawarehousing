@@ -95,8 +95,8 @@ def populate_datawarehouse():
                         usecols=range(0, 4),
                         header=None,
                         # low_memory=False,
-                        error_bad_lines=False,
-                        warn_bad_lines=True,
+                        # error_bad_lines=False,
+                        # warn_bad_lines=True,
                         chunksize=USE_DF_CHUNK_SIZE,
                         dtype={"0": str, "1": str, "2": str, "3": int},
                     )
@@ -127,8 +127,8 @@ def populate_datawarehouse():
                         usecols=range(0, 4),
                         header=None,
                         # low_memory=False,
-                        error_bad_lines=False,
-                        warn_bad_lines=True,
+                        # error_bad_lines=False,
+                        # warn_bad_lines=True,
                         dtype={"0": str, "1": str, "2": str, "3": int},
                     )
                     chunk_start = datetime.now()
