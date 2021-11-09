@@ -1,11 +1,14 @@
+import io
 import os
 from datetime import date, datetime
 
 import pandas as pd
+import requests
 from sqlalchemy import create_engine
 
 from config import *
 from database_clients import PostgreSQLClient, SQLiteClient
+from utilities import validate_df
 
 
 def create_client_engine():
@@ -79,11 +82,15 @@ def populate_datawarehouse():
                         if os.path.isfile(
                             os.path.join(DATALAKE_DIR, folder_name, file_name)
                         )
-                        else resource_url
+                        else io.StringIO(
+                            requests.get(resource_url).content.decode("utf-8")
+                        )
                     )
                 else:
                     print(f"Reading {folder_name}/{file_name} from resource url")
-                    file_path = resource_url
+                    file_path = io.StringIO(
+                        requests.get(resource_url).content.decode("utf-8")
+                    )
 
                 print(f"Processing {file_name} to ingest.")
                 df_shape = 0
@@ -103,8 +110,8 @@ def populate_datawarehouse():
                     chunk_start = datetime.now()
                     for chunk in df:
                         df_shape += chunk.shape[0]
-                        chunk.astype({"0": str, "1": str, "2": str, "3": int})
                         chunk.columns = columns
+                        chunk = validate_df(chunk)
                         chunk["date"] = date
                         chunk["wiki"] = wiki
                         df_bytes += chunk.memory_usage(deep=True).sum()
@@ -136,6 +143,7 @@ def populate_datawarehouse():
                     chunk_start = datetime.now()
                     df_shape = df.shape[0]
                     df.columns = columns
+                    df = validate_df(df)
                     df["date"] = date
                     df["wiki"] = wiki
                     df_bytes = df.memory_usage(deep=True).sum()
