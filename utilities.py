@@ -3,6 +3,9 @@ import pandas as pd
 
 def validate_df(df: pd.DataFrame) -> pd.DataFrame:
     # df_with_null = df[df.isnull().any(axis=1)]
+    df["number_of_occurrences"] = pd.to_numeric(
+        df["number_of_occurrences"], errors="coerce"
+    )
     df_without_null = df.dropna()
     df_with_null = df.drop(df_without_null.index)
     df_with_null["referrer"].fillna("no referrer", inplace=True)

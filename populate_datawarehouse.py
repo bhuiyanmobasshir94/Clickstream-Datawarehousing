@@ -96,17 +96,30 @@ def populate_datawarehouse():
                 df_shape = 0
                 df_bytes = 0
                 if USE_DF_CHUNK:
-                    df = pd.read_table(
-                        file_path,
-                        compression="gzip",
-                        usecols=range(0, 4),
-                        header=None,
-                        # low_memory=False,
-                        # error_bad_lines=False,
-                        # warn_bad_lines=True,
-                        chunksize=USE_DF_CHUNK_SIZE,
-                        dtype={"0": str, "1": str, "2": str, "3": int},
-                    )
+                    try:
+                        df = pd.read_table(
+                            file_path,
+                            compression="gzip",
+                            usecols=range(0, 4),
+                            header=None,
+                            # low_memory=False,
+                            # error_bad_lines=False,
+                            # warn_bad_lines=True,
+                            chunksize=USE_DF_CHUNK_SIZE,
+                            dtype={"0": str, "1": str, "2": str, "3": int},
+                        )
+                    except ValueError:
+                        df = pd.read_table(
+                            file_path,
+                            compression="gzip",
+                            usecols=range(0, 4),
+                            header=None,
+                            # low_memory=False,
+                            # error_bad_lines=False,
+                            # warn_bad_lines=True,
+                            chunksize=USE_DF_CHUNK_SIZE,
+                            # dtype={"0": str, "1": str, "2": str, "3": int},
+                        )
                     chunk_start = datetime.now()
                     for chunk in df:
                         df_shape += chunk.shape[0]
@@ -130,16 +143,28 @@ def populate_datawarehouse():
                             f"{df_shape} rows and {df_bytes} bytes processed in {chunk_end}"
                         )
                 else:
-                    df = pd.read_table(
-                        file_path,
-                        compression="gzip",
-                        usecols=range(0, 4),
-                        header=None,
-                        # low_memory=False,
-                        # error_bad_lines=False,
-                        # warn_bad_lines=True,
-                        dtype={"0": str, "1": str, "2": str, "3": int},
-                    )
+                    try:
+                        df = pd.read_table(
+                            file_path,
+                            compression="gzip",
+                            usecols=range(0, 4),
+                            header=None,
+                            # low_memory=False,
+                            # error_bad_lines=False,
+                            # warn_bad_lines=True,
+                            dtype={"0": str, "1": str, "2": str, "3": int},
+                        )
+                    except ValueError:
+                        df = pd.read_table(
+                            file_path,
+                            compression="gzip",
+                            usecols=range(0, 4),
+                            header=None,
+                            # low_memory=False,
+                            # error_bad_lines=False,
+                            # warn_bad_lines=True,
+                            # dtype={"0": str, "1": str, "2": str, "3": int},
+                        )
                     chunk_start = datetime.now()
                     df_shape = df.shape[0]
                     df.columns = columns
