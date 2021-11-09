@@ -103,12 +103,14 @@ def populate_datawarehouse():
                     chunk_start = datetime.now()
                     for chunk in df:
                         df_shape += chunk.shape[0]
-                        df_bytes += chunk.memory_usage(deep=True).sum()
+                        chunk.astype({"0": str, "1": str, "2": str, "3": int})
                         chunk.columns = columns
                         chunk["date"] = date
                         chunk["wiki"] = wiki
+                        df_bytes += chunk.memory_usage(deep=True).sum()
                         print(f"Inserting chunk of {chunk.shape[0]} rows")
                         chunk.to_sql(
+                            schema="public",
                             name=DATAWAREHOUSE_TABLE,
                             con=client_engine,
                             if_exists="append",
@@ -133,12 +135,13 @@ def populate_datawarehouse():
                     )
                     chunk_start = datetime.now()
                     df_shape = df.shape[0]
-                    df_bytes = df.memory_usage(deep=True).sum()
                     df.columns = columns
                     df["date"] = date
                     df["wiki"] = wiki
+                    df_bytes = df.memory_usage(deep=True).sum()
                     print(f"Inserting {df_shape} rows")
                     df.to_sql(
+                        schema="public",
                         name=DATAWAREHOUSE_TABLE,
                         con=client_engine,
                         if_exists="append",
