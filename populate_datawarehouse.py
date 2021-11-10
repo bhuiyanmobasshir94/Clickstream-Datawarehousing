@@ -5,33 +5,17 @@ from datetime import date, datetime
 
 import pandas as pd
 import requests
-from sqlalchemy import create_engine
 
 from config import *
-from database_clients import PostgreSQLClient, SQLiteClient
-from utilities import validate_df
+from utils import create_client_engine, validate_df
 
 
-def create_client_engine():
-    if USE_POSTGRESQL:
-        print("Using PostgreSQL")
-        client = PostgreSQLClient(
-            dbname=POSTGRESQL_DB,
-            user=POSTGRESQL_USER,
-            password=POSTGRESQL_PASSWORD,
-            host=POSTGRESQL_HOST,
-            port=POSTGRESQL_PORT,
-        )
-        client.connect()
-        client_engine = create_engine(
-            f"postgresql://{POSTGRESQL_USER}:{POSTGRESQL_PASSWORD}@{POSTGRESQL_HOST}:{POSTGRESQL_PORT}/{POSTGRESQL_DB}"
-        )
-    else:
-        print("Using SQLite")
-        client = SQLiteClient(os.path.join(DATALAKE_DIR, "db", "datawarehouse.sqlite"))
-        client_engine = client.connect()
-
-    return client, client_engine
+def write_log(line, file_path):
+    try:
+        with open(file_path, "a+") as f:
+            f.write(line)
+    except Exception as e:
+        print(e)
 
 
 def populate_datawarehouse():
@@ -101,6 +85,7 @@ def populate_datawarehouse():
                 df_shape = 0
                 df_bytes = 0
                 if USE_DF_CHUNK:
+                    df_start = datetime.now()
                     try:
                         df = pd.read_table(
                             file_path,
@@ -113,7 +98,11 @@ def populate_datawarehouse():
                             chunksize=USE_DF_CHUNK_SIZE,
                             dtype={"0": str, "1": str, "2": str, "3": int},
                         )
-                    except ValueError:
+                    except ValueError as e:
+                        write_log(
+                            f"{e} - {datetime.now()}",
+                            os.path.join(LOG_DIR, LOG_FILE_NAME),
+                        )
                         df = pd.read_table(
                             file_path,
                             compression="gzip",
@@ -125,6 +114,8 @@ def populate_datawarehouse():
                             chunksize=USE_DF_CHUNK_SIZE,
                             # dtype={"0": str, "1": str, "2": str, "3": int},
                         )
+                    df_end = datetime.now()
+                    print(f"Dataframe processing time {df_end - df_start}")
                     chunk_start = datetime.now()
                     for chunk in df:
                         df_shape += chunk.shape[0]
@@ -134,20 +125,27 @@ def populate_datawarehouse():
                         chunk["wiki"] = wiki
                         df_bytes += chunk.memory_usage(deep=True).sum()
                         print(f"Inserting chunk of {chunk.shape[0]} rows")
-                        chunk.to_sql(
-                            schema="public",
-                            name=DATAWAREHOUSE_TABLE,
-                            con=client_engine,
-                            if_exists="append",
-                            index=False,
-                            method="multi",
-                            chunksize=10_000,  # 10,000 rows per insert with 5 parameters for constraint 65535
-                        )
+                        try:
+                            chunk.to_sql(
+                                schema="public",
+                                name=DATAWAREHOUSE_TABLE,
+                                con=client_engine,
+                                if_exists="append",
+                                index=False,
+                                method="multi",
+                                chunksize=10_000,  # 10,000 rows per insert with 5 parameters for constraint 65535
+                            )
+                        except Exception as e:
+                            write_log(
+                                f"{e} - {datetime.now()}",
+                                os.path.join(LOG_DIR, LOG_FILE_NAME),
+                            )
                         chunk_end = datetime.now() - chunk_start
                         print(
                             f"{df_shape} rows and {df_bytes} bytes processed in {chunk_end}"
                         )
                 else:
+                    df_start = datetime.now()
                     try:
                         df = pd.read_table(
                             file_path,
@@ -159,7 +157,11 @@ def populate_datawarehouse():
                             # warn_bad_lines=True,
                             dtype={"0": str, "1": str, "2": str, "3": int},
                         )
-                    except ValueError:
+                    except ValueError as e:
+                        write_log(
+                            f"{e} - {datetime.now()}",
+                            os.path.join(LOG_DIR, LOG_FILE_NAME),
+                        )
                         df = pd.read_table(
                             file_path,
                             compression="gzip",
@@ -170,6 +172,8 @@ def populate_datawarehouse():
                             # warn_bad_lines=True,
                             # dtype={"0": str, "1": str, "2": str, "3": int},
                         )
+                    df_end = datetime.now()
+                    print(f"Dataframe processing time {df_end - df_start}")
                     chunk_start = datetime.now()
                     df_shape = df.shape[0]
                     df.columns = columns
@@ -178,15 +182,21 @@ def populate_datawarehouse():
                     df["wiki"] = wiki
                     df_bytes = df.memory_usage(deep=True).sum()
                     print(f"Inserting {df_shape} rows")
-                    df.to_sql(
-                        schema="public",
-                        name=DATAWAREHOUSE_TABLE,
-                        con=client_engine,
-                        if_exists="append",
-                        index=False,
-                        method="multi",
-                        chunksize=10_000,  # 10,000 rows per insert with 5 parameters for constraint 65535
-                    )
+                    try:
+                        df.to_sql(
+                            schema="public",
+                            name=DATAWAREHOUSE_TABLE,
+                            con=client_engine,
+                            if_exists="append",
+                            index=False,
+                            method="multi",
+                            chunksize=10_000,  # 10,000 rows per insert with 5 parameters for constraint 65535
+                        )
+                    except Exception as e:
+                        write_log(
+                            f"{e} - {datetime.now()}",
+                            os.path.join(LOG_DIR, LOG_FILE_NAME),
+                        )
                     chunk_end = datetime.now() - chunk_start
                     print(
                         f"{df_shape} rows and {df_bytes} bytes processed in {chunk_end}"
