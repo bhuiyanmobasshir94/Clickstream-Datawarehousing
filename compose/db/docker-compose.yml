@@ -1,0 +1,21 @@
+version: "3.8"
+
+volumes:
+  pgdata:
+
+services:
+  db:
+    image: postgres:latest
+    restart: always
+    env_file:
+      - database.env
+    ports:
+      - 5431:5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8081:8080
