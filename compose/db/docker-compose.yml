@@ -4,7 +4,7 @@ volumes:
   pgdata:
 
 services:
-  db:
+  database:
     image: postgres:latest
     restart: always
     env_file:
