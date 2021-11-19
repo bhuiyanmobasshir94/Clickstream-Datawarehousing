@@ -133,3 +133,4 @@ dmypy.json
 /catalogs
 datawarehouse.sqlite
 .env
+.vscode
