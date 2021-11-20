@@ -134,3 +134,5 @@ dmypy.json
 datawarehouse.sqlite
 .env
 .vscode
+.DS_Store
+dump_codes.txt

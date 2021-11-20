@@ -5,38 +5,34 @@ from datetime import datetime
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-from sqlalchemy import create_engine
 
 from config import *
+from extractor import extract
 from utils import create_client_engine
 
-
-def write_log(line, file_path):
-    try:
-        with open(file_path, "a+") as f:
-            f.write(line)
-    except Exception as e:
-        print(e)
+# from sqlalchemy import create_engine
 
 
 def create_tables():
     client, client_engine = create_client_engine()
     client.execute(
         """
-        CREATE TABLE IF NOT EXISTS datacatalog (
+        CREATE TABLE IF NOT EXISTS {DATACATALOG_TABLE} (
             folder_name VARCHAR(200) NOT NULL,
             file_name VARCHAR(200) NOT NULL,
             resource_url VARCHAR(200) NOT NULL,
             size_in_bytes BIGINT NOT NULL,
             data_inserted BOOLEAN NOT NULL,
             number_of_rows BIGINT NOT NULL,
-            CONSTRAINT datacatalog_pk PRIMARY KEY (folder_name, file_name)
+            CONSTRAINT {DATACATALOG_TABLE}_pk PRIMARY KEY (folder_name, file_name)
         )
-        """
+        """.format(
+            DATACATALOG_TABLE=DATACATALOG_TABLE
+        )
     )
     client.execute(
         """
-        CREATE TABLE IF NOT EXISTS clickstream (
+        CREATE TABLE IF NOT EXISTS {DATAWAREHOUSE_TABLE} (
             referrer VARCHAR(500) NOT NULL,
             resource VARCHAR(500) NOT NULL,
             type VARCHAR(200) NOT NULL,
@@ -44,20 +40,22 @@ def create_tables():
             date DATE NOT NULL,
             wiki VARCHAR(200) NOT NULL
         )
-        """
+        """.format(
+            DATAWAREHOUSE_TABLE=DATAWAREHOUSE_TABLE
+        )
     )
     client.disconnect()
-    print("Tables created.")
+    logger.info("Tables created.")
 
 
 def populate_datacatalog():
     client, client_engine = create_client_engine()
 
-    datacatalog = pd.read_sql(f"SELECT * FROM {DATACATALOG_TABLE}", client_engine)
+    datacatalog = pd.read_sql_table(DATACATALOG_TABLE, client_engine)
     datacatalog_number_of_rows = datacatalog.shape[0]
 
     if datacatalog_number_of_rows == 0:
-        print("Creating datacatalog...")
+        logger.info("Creating datacatalog.")
         html = requests.get(DATA_VENDOR_URL).text
         soup = BeautifulSoup(html, "lxml")
         parent_links = [
@@ -122,66 +120,106 @@ def populate_datacatalog():
                 method="multi",
                 chunksize=10_000,
             )
-            print("Datacatalog created.")
+            logger.info("Datacatalog created.")
         except Exception as e:
-            print("Error executing query: ", e)
-            write_log(f"{e} - {datetime.now()}", os.path.join(LOG_DIR, LOG_FILE_NAME))
+            logger.error(e)
+    else:
+        logger.info("Datacatalog already exists.")
+    client.disconnect()
+
+
+def create_datalake():
+    client, client_engine = create_client_engine()
+    folder_names, file_names = FOLDER_NAMES, FILE_NAMES
+
+    datacatalog = pd.read_sql_table(DATACATALOG_TABLE, client_engine)
+    datacatalog_number_of_rows = datacatalog.shape[0]
+
+    if datacatalog_number_of_rows > 0:
+        for index, row in datacatalog.iterrows():
+            folder_name = row["folder_name"]
+            file_name = row["file_name"]
+            resource_url = row["resource_url"]
+            size_in_bytes = row["size_in_bytes"]
+            data_inserted = bool(row["data_inserted"])
+            number_of_rows = row["number_of_rows"]
+
+            if (
+                folder_names
+                and len(folder_names) > 0
+                and not folder_name in folder_names
+            ) or (file_names and len(file_names) > 0 and not file_name in file_names):
+                continue
+
+            folder_path = os.path.join(DATALAKE_DIR, folder_name)
+            os.makedirs(folder_path, exist_ok=True)
+
+            gz_file_path = os.path.join(DATALAKE_DIR, folder_name, file_name)
+            file_path = gz_file_path.replace(".gz", "")
+
+            if (
+                os.path.exists(gz_file_path) and not os.path.getsize(gz_file_path) > 0
+            ) or not os.path.exists(gz_file_path):
+                try:
+                    r = requests.get(resource_url, stream=True)
+                    with open(gz_file_path, "wb") as f:
+                        for chunk in r.raw.stream(1024, decode_content=False):
+                            if chunk:
+                                f.write(chunk)
+
+                    with open(file_path, "wb") as f:
+                        with requests.get(
+                            resource_url, allow_redirects=True, stream=True
+                        ) as resp:
+                            for chunk in resp.iter_content(chunk_size=1024):
+                                if chunk:
+                                    f.write(chunk)
+
+                    # with open(file_path, "wb") as f:
+                    #     for chunk in r.iter_content(chunk_size=1024):
+                    #         if chunk:
+                    #             f.write(chunk)
+
+                    logger.info(
+                        "Data downloaded into datalake for {}.".format(file_name)
+                    )
+                except Exception as e:
+                    logger.error(e)
+            elif (
+                os.path.exists(gz_file_path)
+                and os.path.getsize(gz_file_path) > 0
+                and (
+                    not os.path.exists(file_path) or not os.path.getsize(file_path) > 0
+                )
+            ):
+                try:
+                    extract(folder_path, gz_file_path)
+                    logger.info(
+                        "Data extracted into datalake for {}.".format(file_name)
+                    )
+                except Exception as e:
+                    logger.error(e)
+            else:
+                logger.info("Data already exists in datalake for {}.".format(file_name))
+
+            size_in_bytes = os.path.getsize(file_path)
+            client.execute(
+                """
+                UPDATE {DATACATALOG_TABLE}
+                SET size_in_bytes = {size_in_bytes}
+                WHERE folder_name = '{folder_name}'
+                    AND resource_url = '{resource_url}'
+                """.format(
+                    DATACATALOG_TABLE=DATACATALOG_TABLE,
+                    folder_name=folder_name,
+                    size_in_bytes=size_in_bytes,
+                    resource_url=resource_url,
+                )
+            )
     client.disconnect()
 
 
 if __name__ == "__main__":
     create_tables()
     populate_datacatalog()
-
-
-# print(sqlite.execute("SELECT COUNT(*) FROM datacatalog"))
-# print(sqlite.fetch_all())  # [(0,)]
-# print(sqlite.fetch_one())  # (0,)
-
-# data_catalog = pd.read_sql("SELECT * FROM datacatalog", client_engine)
-# print(f"{data_catalog.shape[0]} files to process.")
-
-# for index, row in data_catalog.iterrows():
-#     folder_name = row["folder_name"]
-#     file_name = row["file_name"]
-#     resource_url = row["resource_url"]
-
-#     if condition and not folder_name.startswith(condition):
-#         # print(f"Skipping {folder_name}")
-#         continue
-
-#     if not os.path.exists(f"data/{folder_name}"):
-#         os.mkdir(f"data/{folder_name}")
-#     file_path = os.path.join("data", folder_name, file_name)
-#     if not os.path.exists(file_path):
-#         with open(file_path, "wb") as f:
-#             response = requests.get(resource_url)
-#             f.write(response.content)
-#         # data_catalog.loc[index, "size_in_bytes"] = os.stat(file_path).st_size
-#         client.execute(
-#             f"UPDATE datacatalog SET size_in_bytes = {os.stat(file_path).st_size} WHERE file_name = '{file_name}'"
-#         )
-#         print(f"The file {file_name} now contains {os.stat(file_path).st_size} bytes")
-#     else:
-#         if row["size_in_bytes"] == 0:
-#             if os.stat(file_path).st_size > 0:
-#                 # data_catalog.loc[index, "size_in_bytes"] = os.stat(file_path).st_size
-#                 client.execute(
-#                     f"UPDATE datacatalog SET size_in_bytes = {os.stat(file_path).st_size} WHERE file_name = '{file_name}'"
-#                 )
-#                 print(
-#                     f"The file {file_name} now contains {os.stat(file_path).st_size} bytes"
-#                 )
-#             else:
-#                 with open(file_path, "wb") as f:
-#                     response = requests.get(resource_url)
-#                     f.write(response.content)
-#                 # data_catalog.loc[index, "size_in_bytes"] = os.stat(file_path).st_size
-#                 client.execute(
-#                     f"UPDATE datacatalog SET size_in_bytes = {os.stat(file_path).st_size} WHERE file_name = '{file_name}'"
-#                 )
-#                 print(
-#                     f"The file {file_name} now contains {os.stat(file_path).st_size} bytes"
-#                 )
-# print(f"Datalake created.")
-# client.disconnect()
+    create_datalake()

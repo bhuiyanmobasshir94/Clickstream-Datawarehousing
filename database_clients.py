@@ -7,16 +7,6 @@ import psycopg2
 
 from config import *
 
-# from utils import write_log
-
-
-def write_log(line, file_path):
-    try:
-        with open(file_path, "a+") as f:
-            f.write(line)
-    except Exception as e:
-        print(e)
-
 
 class PostgreSQLClient:
     def __init__(self, dbname, user, password, host, port):
@@ -40,8 +30,7 @@ class PostgreSQLClient:
             self.cursor = self.conn.cursor()
             return self.conn
         except psycopg2.Error as e:
-            print("Error connecting to database: ", e)
-            write_log(f"{e} - {datetime.now()}", os.path.join(LOG_DIR, LOG_FILE_NAME))
+            logger.error(e)
             sys.exit(1)
 
     def disconnect(self):
@@ -55,8 +44,7 @@ class PostgreSQLClient:
             self.cursor.execute(query, params)
             self.conn.commit()
         except psycopg2.Error as e:
-            print("Error executing query: ", e)
-            write_log(f"{e} - {datetime.now()}", os.path.join(LOG_DIR, LOG_FILE_NAME))
+            logger.error(e)
             # sys.exit(1)
 
     def fetch_all(self):
@@ -65,8 +53,7 @@ class PostgreSQLClient:
         try:
             return self.cursor.fetchall()
         except psycopg2.Error as e:
-            print("Error fetching results: ", e)
-            write_log(f"{e} - {datetime.now()}", os.path.join(LOG_DIR, LOG_FILE_NAME))
+            logger.error(e)
             # sys.exit(1)
 
     def fetch_one(self):
@@ -75,8 +62,7 @@ class PostgreSQLClient:
         try:
             return self.cursor.fetchone()  # returns a tuple
         except psycopg2.Error as e:
-            print("Error fetching results: ", e)
-            write_log(f"{e} - {datetime.now()}", os.path.join(LOG_DIR, LOG_FILE_NAME))
+            logger.error(e)
             # sys.exit(1)
 
 
@@ -92,8 +78,7 @@ class SQLiteClient:
             self.cursor = self.conn.cursor()
             return self.conn
         except sqlite3.Error as e:
-            print("Error connecting to database: ", e)
-            write_log(f"{e} - {datetime.now()}", os.path.join(LOG_DIR, LOG_FILE_NAME))
+            logger.error(e)
             sys.exit(1)
 
     def disconnect(self):
@@ -107,8 +92,7 @@ class SQLiteClient:
             self.cursor.execute(query)
             self.conn.commit()
         except sqlite3.Error as e:
-            print("Error executing query: ", e)
-            write_log(f"{e} - {datetime.now()}", os.path.join(LOG_DIR, LOG_FILE_NAME))
+            logger.error(e)
             # sys.exit(1)
 
     def fetch_all(self):
@@ -117,8 +101,7 @@ class SQLiteClient:
         try:
             return self.cursor.fetchall()
         except sqlite3.Error as e:
-            print("Error fetching results: ", e)
-            write_log(f"{e} - {datetime.now()}", os.path.join(LOG_DIR, LOG_FILE_NAME))
+            logger.error(e)
             # sys.exit(1)
 
     def fetch_one(self):
@@ -127,6 +110,5 @@ class SQLiteClient:
         try:
             return self.cursor.fetchone()  # returns a tuple
         except sqlite3.Error as e:
-            print("Error fetching results: ", e)
-            write_log(f"{e} - {datetime.now()}", os.path.join(LOG_DIR, LOG_FILE_NAME))
+            logger.error(e)
             # sys.exit(1)

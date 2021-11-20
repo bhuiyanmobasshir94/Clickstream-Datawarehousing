@@ -5,14 +5,9 @@ from config import *
 from database_clients import PostgreSQLClient, SQLiteClient
 
 
-def write_log(line, file_path):
-    with open(file_path, "a+") as f:
-        f.write(line)
-
-
 def create_client_engine():
     if USE_POSTGRESQL:
-        print("Using PostgreSQL")
+        logger.info("Using PostgreSQL")
         client = PostgreSQLClient(
             dbname=POSTGRESQL_DB,
             user=POSTGRESQL_USER,
@@ -25,7 +20,7 @@ def create_client_engine():
             f"postgresql://{POSTGRESQL_USER}:{POSTGRESQL_PASSWORD}@{POSTGRESQL_HOST}:{POSTGRESQL_PORT}/{POSTGRESQL_DB}"
         )
     else:
-        print("Using SQLite")
+        logger.info("Using SQLite")
         client = SQLiteClient(os.path.join(DATALAKE_DIR, "db", "datawarehouse.sqlite"))
         client_engine = client.connect()
 
@@ -45,11 +40,6 @@ def validate_df(df: pd.DataFrame) -> pd.DataFrame:
     df_with_null["number_of_occurrences"].fillna(0, inplace=True)
     df = pd.concat([df_without_null, df_with_null], ignore_index=True)
     df = df.astype(
-        {
-            "referrer": str,
-            "resource": str,
-            "type": str,
-            "number_of_occurrences": int,
-        }
+        {"referrer": str, "resource": str, "type": str, "number_of_occurrences": int,}
     )
     return df
