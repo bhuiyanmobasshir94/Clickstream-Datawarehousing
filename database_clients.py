@@ -37,6 +37,11 @@ class PostgreSQLClient:
         if self.conn:
             self.conn.close()
 
+    def cursor(self):
+        if not self.cursor:
+            self.connect()
+        return self.cursor
+
     def execute(self, query, params=None):
         if not self.cursor:
             self.connect()
@@ -84,6 +89,11 @@ class SQLiteClient:
     def disconnect(self):
         if self.conn:
             self.conn.close()
+
+    def cursor(self):
+        if not self.cursor:
+            self.connect()
+        return self.cursor
 
     def execute(self, query):
         if not self.cursor:
