@@ -13,6 +13,27 @@ from utils import create_client_engine
 # from sqlalchemy import create_engine
 
 
+def create_staging_table():
+    client, client_engine = create_client_engine()
+
+    client.execute(
+        """
+        CREATE UNLOGGED TABLE IF NOT EXISTS staging_{DATAWAREHOUSE_TABLE} (
+            referrer VARCHAR(500) NOT NULL,
+            resource VARCHAR(500) NOT NULL,
+            type VARCHAR(200) NOT NULL,
+            number_of_occurrences BIGINT NOT NULL,
+            date DATE NOT NULL,
+            wiki VARCHAR(200) NOT NULL
+        );
+        """.format(
+            DATAWAREHOUSE_TABLE=DATAWAREHOUSE_TABLE
+        )
+    )
+    client.disconnect()
+    logger.info("Staging table created.")
+
+
 def create_tables():
     client, client_engine = create_client_engine()
     client.execute(
