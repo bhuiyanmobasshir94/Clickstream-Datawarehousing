@@ -137,3 +137,4 @@ datawarehouse.sqlite
 .DS_Store
 dump_codes.txt
 /logs
+/airflow/logs
