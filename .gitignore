@@ -102,7 +102,7 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
+# .env
 .venv
 env/
 venv/
@@ -132,7 +132,7 @@ dmypy.json
 /data/*
 /catalogs/*
 datawarehouse.sqlite
-.env
+# .env
 .vscode
 .DS_Store
 dump_codes.txt
