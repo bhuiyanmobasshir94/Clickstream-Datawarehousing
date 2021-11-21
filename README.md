@@ -100,3 +100,11 @@ airflow scheduler -D
 ```
 
 Now you can login with above creds and go to the dags section and will find a dag named `clickstream` and manually trigger to run the dag with the play button.
+
+To stop the webserver and scheduler, use the following command.
+
+```
+cat $AIRFLOW_HOME/airflow-webserver.pid | xargs kill -9
+cat $AIRFLOW_HOME/airflow-scheduler.pid | xargs kill -9
+cat $AIRFLOW_HOME/airflow-webserver-monitor.pid | xargs kill -9
+```
