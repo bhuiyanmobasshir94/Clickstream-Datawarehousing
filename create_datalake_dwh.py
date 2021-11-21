@@ -322,3 +322,4 @@ def extract_transform_load():
                 except Exception as e:
                     logger.error(e)
     client.disconnect()
+    logger.info("Finished.")
