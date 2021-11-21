@@ -1,3 +1,5 @@
+import io
+
 import pandas as pd
 from sqlalchemy import create_engine
 
@@ -42,4 +44,20 @@ def validate_df(df: pd.DataFrame) -> pd.DataFrame:
     df = df.astype(
         {"referrer": str, "resource": str, "type": str, "number_of_occurrences": int,}
     )
+    for col in df.columns:
+        if df[col].dtype == object and (df[col].str.len()).max() > 500:
+            logger.critical(f"{col} has length {(df[col].str.len()).max()}")
+            pdf = df.loc[(df[col].str.len() > 500), col]
+            df.drop(pdf.index, inplace=True)
+            logger.critical(f"Skipping {len(pdf.index)} indexes: {str(pdf.index)} ")
+            for index, value in pdf.items():
+                file = io.StringIO(value)
+                error_file_path = os.path.join(
+                    LOGS_DIR, f"skipped_col_{col}_index_{index}.txt"
+                )
+                if os.path.exists(error_file_path):
+                    os.remove(error_file_path)
+                with open(error_file_path, "w") as f:
+                    f.write(file.read())
+
     return df

@@ -3,14 +3,17 @@ from collections import defaultdict
 from datetime import datetime
 
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import requests
 from bs4 import BeautifulSoup
 
 from config import *
 from extractor import extract
-from utils import create_client_engine
+from utils import create_client_engine, validate_df
 
 # from sqlalchemy import create_engine
+# from iterator import copy_string_iterator
 
 
 def create_staging_table():
@@ -240,7 +243,82 @@ def create_datalake():
     client.disconnect()
 
 
-if __name__ == "__main__":
-    create_tables()
-    populate_datacatalog()
-    create_datalake()
+def extract_transform_load():
+    client, client_engine = create_client_engine()
+    folder_names, file_names = FOLDER_NAMES, FILE_NAMES
+
+    datacatalog = pd.read_sql_table(DATACATALOG_TABLE, client_engine)
+    datacatalog_number_of_rows = datacatalog.shape[0]
+
+    columns = ["referrer", "resource", "type", "number_of_occurrences"]
+
+    if datacatalog_number_of_rows > 0:
+        for index, row in datacatalog.iterrows():
+            folder_name = row["folder_name"]
+            file_name = row["file_name"]
+            resource_url = row["resource_url"]
+            size_in_bytes = row["size_in_bytes"]
+            data_inserted = bool(row["data_inserted"])
+            number_of_rows = row["number_of_rows"]
+            date = datetime.strptime(folder_name, "%Y-%m").date()
+            wiki = str(file_name.split("-")[1])
+
+            if (
+                folder_names
+                and len(folder_names) > 0
+                and not folder_name in folder_names
+            ) or (file_names and len(file_names) > 0 and not file_name in file_names):
+                continue
+
+            folder_path = os.path.join(DATALAKE_DIR, folder_name)
+            gz_file_path = os.path.join(DATALAKE_DIR, folder_name, file_name)
+            tsv_file_path = gz_file_path.replace(".gz", "")
+            parquet_file_path = tsv_file_path.replace(".tsv", ".parquet")
+
+            if not os.path.exists(parquet_file_path):
+                try:
+                    df = pd.read_csv(
+                        tsv_file_path,
+                        header=None,
+                        sep="\t",
+                        error_bad_lines=False,
+                        warn_bad_lines=True,
+                    )
+                    df.columns = columns
+                    df = validate_df(df)
+                    df["date"] = date
+                    df["wiki"] = wiki
+
+                    table = pa.Table.from_pandas(df)
+                    pq.write_table(table, parquet_file_path, compression="BROTLI")
+                    logger.info(
+                        f"Created parquet file {os.path.basename(parquet_file_path)}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"file_name: {os.path.basename(parquet_file_path)}, error: {e}"
+                    )
+            else:
+                df = pd.read_parquet(parquet_file_path, engine="fastparquet")
+                logger.info(f"Read parquet file {os.path.basename(parquet_file_path)}")
+
+            if not data_inserted and number_of_rows == 0:
+                try:
+                    df.to_sql(
+                        schema="public",
+                        name=DATAWAREHOUSE_TABLE,
+                        con=client_engine,
+                        if_exists="append",
+                        index=False,
+                        method="multi",
+                        chunksize=10_000,  # 10,000 rows per insert with 5 parameters for constraint 65535
+                    )
+                    logger.info(
+                        f"Inserted data into {DATAWAREHOUSE_TABLE} for {os.path.basename(parquet_file_path)} with {df.shape[0]} rows."
+                    )
+                    client.execute(
+                        f"UPDATE {DATACATALOG_TABLE} SET data_inserted = True, number_of_rows = {df.shape[0]} WHERE resource_url = '{resource_url}'"
+                    )
+                except Exception as e:
+                    logger.error(e)
+    client.disconnect()
