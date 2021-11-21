@@ -13,7 +13,7 @@ docker-compose up -d
 
 ## Setting up the `.env`
 
-Place the `.env` file in the root of the project.
+Place the `.env` file in the root of the project (For demonstration puposes it has been pushed to github).
 
 ## Setting up the virtual environment
 
