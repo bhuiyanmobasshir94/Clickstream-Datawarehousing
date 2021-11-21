@@ -129,12 +129,16 @@ dmypy.json
 .pyre/
 
 # Custom
-/data
-/catalogs
+/data/*
+/catalogs/*
 datawarehouse.sqlite
 .env
 .vscode
 .DS_Store
 dump_codes.txt
-/logs
-/airflow/logs
+/logs/*
+/airflow/logs/*
+/airflow/*.err
+/airflow/*.out
+/airflow/*.pid
+/airflow/*.log
