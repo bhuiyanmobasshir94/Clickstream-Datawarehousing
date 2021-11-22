@@ -13,7 +13,7 @@ docker-compose up -d
 
 ## Setting up the `.env`
 
-Place the `.env` file in the root of the project (For demonstration puposes it has been pushed to github).
+Place the `.env` file in the root of the project.
 
 ## Setting up the virtual environment
 
@@ -38,7 +38,7 @@ pip install -r requirements.txt
 
 ## Setting up the airflow environment
 
-Airflow is being used for workflow or pipeline management. `airflow.db` is pushed with code for skipping setup issues though it shouldn't be done.
+Airflow is being used for workflow or pipeline management.
 
 Below is the config for airflow setup but it can be skipped (all setup are done already). You should skip from here to
 
@@ -78,11 +78,16 @@ airflow users create \
 
 upto this point.
 
-Launch webserver with the following command.
+Reset airflow db with the following script and set the admin password `admin`.
 
 ```
-export AIRFLOW_HOME=${PWD}/airflow
-airflow webserver --port 8080 -D  # http://localhost:8080
+bash init_airflow_db.sh
+```
+
+Launch webserver with the following script.
+
+```
+bash start_airflow.sh
 ```
 
 Credentials:
@@ -92,19 +97,10 @@ user: admin
 password: admin
 ```
 
-Launch scheduler with the following command.
+Now you can login to the web `http://localhost:8080/` with above creds and go to the `dags` section and will find a dag named `clickstream` and manually trigger to run the dag with the play button.
+
+To stop the webserver and scheduler, use the following script.
 
 ```
-export AIRFLOW_HOME=${PWD}/airflow
-airflow scheduler -D
-```
-
-Now you can login with above creds and go to the dags section and will find a dag named `clickstream` and manually trigger to run the dag with the play button.
-
-To stop the webserver and scheduler, use the following command.
-
-```
-cat $AIRFLOW_HOME/airflow-webserver.pid | xargs kill -9
-cat $AIRFLOW_HOME/airflow-scheduler.pid | xargs kill -9
-cat $AIRFLOW_HOME/airflow-webserver-monitor.pid | xargs kill -9
+bash stop_airflow.sh
 ```
