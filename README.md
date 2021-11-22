@@ -99,6 +99,9 @@ password: admin
 
 Now you can login to the web `http://localhost:8080/` with above creds and go to the `dags` section and will find a dag named `clickstream` and manually trigger to run the dag with the play button.
 
+![clckstream_dag](statics/clckstream_dag.png)
+![clckstream_graph](statics/clckstream_graph.png)
+
 To stop the webserver and scheduler, use the following script.
 
 ```
