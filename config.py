@@ -36,8 +36,8 @@ FILE_NAMES = (
     if os.getenv("FILE_NAMES") is not None
     else []
 )
-USE_DF_CHUNK = os.getenv("USE_DF_CHUNK") == "True"
-USE_DF_CHUNK_SIZE = int(os.getenv("USE_DF_CHUNK_SIZE"))
+# USE_DF_CHUNK = os.getenv("USE_DF_CHUNK") == "True"
+# USE_DF_CHUNK_SIZE = int(os.getenv("USE_DF_CHUNK_SIZE"))
 
 LOGS_DIR = Path(BASE_DIR, os.getenv("LOG_DIR"))
 LOGS_DIR.mkdir(parents=True, exist_ok=True)

@@ -190,14 +190,15 @@ def create_datalake():
                         for chunk in r.raw.stream(1024, decode_content=False):
                             if chunk:
                                 f.write(chunk)
+                    extract(folder_path, gz_file_path)
 
-                    with open(file_path, "wb") as f:
-                        with requests.get(
-                            resource_url, allow_redirects=True, stream=True
-                        ) as resp:
-                            for chunk in resp.iter_content(chunk_size=1024):
-                                if chunk:
-                                    f.write(chunk)
+                    # with open(file_path, "wb") as f:
+                    #     with requests.get(
+                    #         resource_url, allow_redirects=True, stream=True
+                    #     ) as resp:
+                    #         for chunk in resp.iter_content(chunk_size=1024):
+                    #             if chunk:
+                    #                 f.write(chunk)
 
                     # with open(file_path, "wb") as f:
                     #     for chunk in r.iter_content(chunk_size=1024):
