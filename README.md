@@ -107,3 +107,5 @@ To stop the webserver and scheduler, use the following script.
 ```
 bash stop_airflow.sh
 ```
+
+Please go to `QA.ipynb` for answers to the questions.
