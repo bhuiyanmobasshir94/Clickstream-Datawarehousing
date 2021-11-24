@@ -1,3 +1,4 @@
+export AIRFLOW_HOME=${PWD}/airflow
 cat $AIRFLOW_HOME/airflow-webserver.pid | xargs kill -9
 cat $AIRFLOW_HOME/airflow-scheduler.pid | xargs kill -9
 cat $AIRFLOW_HOME/airflow-webserver-monitor.pid | xargs kill -9
